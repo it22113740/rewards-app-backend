@@ -1,0 +1,224 @@
+// Rewards app – Prisma schema
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  OWNER
+  USER
+}
+
+enum SubmissionType {
+  PHOTO
+  VIDEO
+}
+
+enum SubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum RedemptionStatus {
+  ISSUED
+  USED
+}
+
+enum PerkType {
+  DISCOUNT
+  FREE_MEAL
+  OTHER
+}
+
+// ---------------------------------------------------------------------------
+// Password reset OTP (forgot password flow)
+// ---------------------------------------------------------------------------
+
+model PasswordResetOtp {
+  id        String   @id @default(cuid())
+  email     String   // User.email (same for USER and OWNER)
+  otp       String   // 6-digit code
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([email, otp])
+}
+
+// ---------------------------------------------------------------------------
+// User & owner
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  username     String?  // required for USER role
+  imageUrl     String?  // optional profile image (Cloudinary URL)
+  passwordHash String
+  role         Role
+  pushToken    String?  // FCM/APNs token for push notifications
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  ownerProfile   OwnerProfile?
+  submissions    Submission[]
+  redemptions    Redemption[]
+  notifications  Notification[]
+  venuePoints    UserVenuePoints[]
+}
+
+model OwnerProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gmail           String
+  address         String
+  onboardingStep  Int      @default(0) // 0 = initial, 1–3 = stepper done
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  venues Venue[]
+}
+
+// ---------------------------------------------------------------------------
+// Venue (restaurant / coolbar)
+// ---------------------------------------------------------------------------
+
+model Venue {
+  id              String   @id @default(cuid())
+  ownerId         String
+  owner           OwnerProfile @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name            String
+  address         String
+  lat             Float
+  lng             Float
+  radiusMeters    Int      @default(100) // geofence radius
+  description     String?
+  category        String?  // e.g. "restaurant", "coolbar"
+  imageUrl        String?  // Cloudinary URL – shop image uploaded by owner
+  pointsPerVideo  Int      @default(0)
+  pointsPerPhoto  Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  perks       Perk[]
+  submissions Submission[]
+  points      UserVenuePoints[]
+
+  @@index([lat, lng])
+  @@index([ownerId])
+}
+
+// ---------------------------------------------------------------------------
+// Perk (offer) – stepper 3
+// ---------------------------------------------------------------------------
+
+model Perk {
+  id              String   @id @default(cuid())
+  venueId         String
+  venue           Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  pointsRequired  Int
+  title           String
+  description     String?
+  type            PerkType @default(OTHER)
+  discountPercent Int?     // when type = DISCOUNT
+  promoCodePrefix String?  // optional prefix for generated promo codes
+  imageUrl        String?  // optional cover image (Cloudinary)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  redemptions Redemption[]
+
+  @@index([venueId])
+}
+
+// ---------------------------------------------------------------------------
+// Submission (user uploads photo/video at venue)
+// ---------------------------------------------------------------------------
+
+model Submission {
+  id              String            @id @default(cuid())
+  userId          String
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  venueId         String
+  venue           Venue             @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  type            SubmissionType
+  mediaUrl        String            // Cloudinary URL
+  status          SubmissionStatus  @default(PENDING)
+  rejectionReason String?
+  reviewedAt      DateTime?
+  pointsAwarded   Int?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([venueId, status])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// User points per venue (balance for redemption)
+// ---------------------------------------------------------------------------
+
+model UserVenuePoints {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  venueId   String
+  venue     Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  points    Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, venueId])
+  @@index([userId])
+  @@index([venueId])
+}
+
+// ---------------------------------------------------------------------------
+// Redemption (user redeems a perk)
+// ---------------------------------------------------------------------------
+
+model Redemption {
+  id         String           @id @default(cuid())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  perkId     String
+  perk       Perk             @relation(fields: [perkId], references: [id], onDelete: Cascade)
+  promoCode  String
+  pointsSpent Int
+  status     RedemptionStatus @default(ISSUED)
+  usedAt     DateTime?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  @@index([perkId, status])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Notification (in-app + push payload reference)
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // e.g. "at_venue", "new_submission", "redemption", "submission_reviewed"
+  title     String
+  body      String
+  data      Json?    // { venueId?, submissionId?, redemptionId?, ... }
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, readAt])
+}
