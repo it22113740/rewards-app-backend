@@ -1,98 +1,118 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Haunt Rewards API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS backend for a location-based rewards app for restaurants and bars. Owners publish venues and perks. Users earn points by uploading photos and videos at those venues, then redeem the points for offers.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+This repository is the API only. The Expo client talks to it over HTTP.
 
-## Description
+## How it works
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Two roles share one user table.
 
-## Project setup
+**Owners** register, complete onboarding, and create venues (name, address, map location, geofence radius, and image). Each venue sets how many points a photo or video is worth and lists perks such as a discount, a free meal, or another offer. Owners review submissions and mark redeemed promo codes as used.
 
-```bash
-$ npm install
-```
+**Users** upload photos or videos at a venue. Approved uploads add points to that user’s balance for that venue. Users spend those points to redeem a perk and receive a promo code.
 
-## Compile and run the project
+Media (profiles, venues, perks, submissions) is stored on Cloudinary. Auth is JWT. Password-reset OTPs are emailed through Brevo SMTP. A geofence check can notify a user when they are inside a venue radius.
+
+## Stack
+
+- NestJS 11, TypeScript
+- PostgreSQL with Prisma
+- JWT (Passport)
+- Cloudinary, Nodemailer (Brevo SMTP)
+- Swagger at `/api`
+
+## Setup
+
+Requires Node.js and a Postgres database (Neon or local).
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm install
+cp .env.example .env
 ```
 
-## Run tests
+Set `DATABASE_URL` in `.env`. The API exits on startup if it is missing. Then apply migrations and start the server:
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm run prisma:migrate
+npm run start:dev
 ```
 
-## Deployment
+The server listens on `PORT` (default `3000`). Interactive docs: [http://localhost:3000/api](http://localhost:3000/api).
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+## Scripts
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+| Command | Description |
+| --- | --- |
+| `npm run start` | Start once |
+| `npm run start:dev` | Start with reload |
+| `npm run start:prod` | Run `dist/src/main` (after `npm run build`) |
+| `npm run build` | Compile |
+| `npm run prisma:migrate` | Apply Prisma migrations in development |
+| `npm run prisma:studio` | Open Prisma Studio |
+| `npm test` | Unit tests |
+| `npm run test:e2e` | End-to-end tests |
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
+## Environment
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+See `.env.example`.
 
-## Resources
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | Yes | Postgres connection string |
+| `JWT_SECRET` | Yes | Signing key for access tokens |
+| `JWT_EXPIRES_IN` | No | Token lifetime in seconds (default `604800`) |
+| `PORT` | No | HTTP port (default `3000`) |
+| `CORS_ORIGINS` | No | Comma-separated browser origins (Expo web defaults to `localhost:8081` and `localhost:19006`) |
+| `CLOUDINARY_CLOUD_NAME` | For uploads | Cloudinary account |
+| `CLOUDINARY_API_KEY` | For uploads | Cloudinary API key |
+| `CLOUDINARY_API_SECRET` | For uploads | Cloudinary API secret |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | For password reset | Brevo SMTP |
+| `SELF_PING_URL` | No | Optional keep-alive ping every 14 minutes |
+| `GEOFENCE_NOTIFY_DEDUPE_HOURS` | No | Dedup window for geofence notifications (clamped to 2–6, default 4) |
 
-Check out a few resources that may come in handy when working with NestJS:
+## API
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+Routes that need a role require `Authorization: Bearer <accessToken>`.
 
-## Support
+| Method | Path | Access | Purpose |
+| --- | --- | --- | --- |
+| `POST` | `/auth/register/owner` | Public | Register an owner |
+| `POST` | `/auth/register/user` | Public | Register a user |
+| `POST` | `/auth/login` | Public | Log in |
+| `POST` | `/auth/forgot-password` | Public | Email a reset OTP |
+| `POST` | `/auth/reset-password` | Public | Reset password with the OTP |
+| `GET` | `/auth/me` | Auth | Current user |
+| `PATCH` | `/auth/change-password` | Auth | Change password |
+| `GET` | `/users/me` | Auth | Profile (includes owner profile when applicable) |
+| `PATCH` | `/users/me` | Auth | Update profile |
+| `GET` | `/users/me/points` | User | Point total and per-venue balances |
+| `POST` | `/venues` | Owner | Create a venue |
+| `GET` | `/venues` | Public | List venues |
+| `GET` | `/venues/mine` | Owner | List the caller’s venues |
+| `GET` | `/venues/near` | Public | Venues near `lat` / `lng` |
+| `PATCH` | `/venues/:id` | Owner | Update a venue |
+| `DELETE` | `/venues/:id` | Owner | Delete a venue |
+| `POST` | `/perks` | Owner | Create a perk |
+| `GET` | `/perks/venue/:venueId` | Public | Perks for a venue |
+| `GET` | `/perks/mine` | Owner | Caller’s perks |
+| `PATCH` | `/perks/:id` | Owner | Update a perk |
+| `DELETE` | `/perks/:id` | Owner | Delete a perk |
+| `POST` | `/upload` | Auth | Upload one image or video to Cloudinary |
+| `POST` | `/upload/multiple` | Auth | Upload up to 20 files |
+| `POST` | `/submissions` | User | Submit one photo or video |
+| `POST` | `/submissions/batch` | User | Submit several items |
+| `GET` | `/submissions/mine` | Auth | Caller’s submissions |
+| `GET` | `/submissions/venue/:venueId/approved-media` | Public | Approved gallery for a venue |
+| `GET` | `/submissions/owner` | Owner | Submissions across the owner’s venues |
+| `GET` | `/submissions/venue/:venueId` | Owner | Submissions for one venue |
+| `PATCH` | `/submissions/:id/review` | Owner | Approve or reject; approval awards points |
+| `POST` | `/redemptions` | User | Spend points and receive a promo code |
+| `GET` | `/redemptions/mine` | Auth | Caller’s redemptions |
+| `GET` | `/redemptions/owner` | Owner | Redemptions across the owner’s venues |
+| `GET` | `/redemptions/venue/:venueId` | Owner | Redemptions for one venue |
+| `PATCH` | `/redemptions/:id/used` | Owner | Mark a promo code as used |
+| `POST` | `/notifications/geofence-check` | Auth | Check whether the user is inside a venue geofence |
+| `POST` | `/notifications/test-push` | Auth | Send a test push to the caller |
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Request and response shapes are documented in Swagger.

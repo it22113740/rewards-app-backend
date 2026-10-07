@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { UsersModule } from './users/users.module.js';
 import { VenuesModule } from './venues/venues.module.js';
 import { PerksModule } from './perks/perks.module.js';
+import { PromotionsModule } from './promotions/promotions.module.js';
 import { UploadModule } from './upload/upload.module.js';
 import { SubmissionsModule } from './submissions/submissions.module.js';
 import { RedemptionsModule } from './redemptions/redemptions.module.js';
@@ -25,6 +26,7 @@ import { NotificationsModule } from './notifications/notifications.module.js';
     UsersModule,
     VenuesModule,
     PerksModule,
+    PromotionsModule,
     UploadModule,
     SubmissionsModule,
     RedemptionsModule,
