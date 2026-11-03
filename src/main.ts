@@ -9,6 +9,7 @@ async function bootstrap() {
     'http://localhost:8081',
     'http://localhost:19006',
     'http://localhost:5173',
+    'https://hunt-dashboard-iota.vercel.app',
   ];
   app.enableCors({
     origin: corsOrigins,
