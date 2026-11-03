@@ -1,4 +1,4 @@
-# Haunt Rewards API
+# Hunt Rewards API
 
 NestJS backend for a location-based rewards app for restaurants and bars. Owners publish venues and perks. Users earn points by uploading photos and videos at those venues, then redeem the points for offers.
 

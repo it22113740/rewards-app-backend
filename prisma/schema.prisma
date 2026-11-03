@@ -16,6 +16,7 @@ datasource db {
 enum Role {
   OWNER
   USER
+  SUPERADMIN
 }
 
 enum SubmissionType {
@@ -67,6 +68,8 @@ model User {
   passwordHash String
   role         Role
   pushToken    String?  // FCM/APNs token for push notifications
+  bannedAt     DateTime?
+  banReason    String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

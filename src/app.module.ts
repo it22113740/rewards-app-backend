@@ -15,6 +15,7 @@ import { RedemptionsModule } from './redemptions/redemptions.module.js';
 import { MailModule } from './mail/mail.module.js';
 import { KeepAliveService } from './keep-alive.service.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
+import { AdminModule } from './admin/admin.module.js';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { NotificationsModule } from './notifications/notifications.module.js';
     SubmissionsModule,
     RedemptionsModule,
     NotificationsModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService, KeepAliveService],

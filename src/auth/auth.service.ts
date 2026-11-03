@@ -96,6 +96,9 @@ export class AuthService {
     ) {
       throw new UnauthorizedException('Invalid email or password');
     }
+    if (user.bannedAt) {
+      throw new UnauthorizedException('This account is banned');
+    }
     const token = this.issueToken(user);
     return { user: this.sanitizeUser(user), accessToken: token };
   }

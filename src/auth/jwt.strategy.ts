@@ -28,6 +28,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     if (!user) {
       throw new UnauthorizedException();
     }
+    if (user.bannedAt) {
+      throw new UnauthorizedException('This account is banned');
+    }
     return user;
   }
 }
