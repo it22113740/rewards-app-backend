@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsEmail,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -10,18 +11,24 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 
 export class OnboardStoreDto {
+  @ApiProperty({ enum: ['new', 'existing'] })
+  @IsIn(['new', 'existing'])
+  mode: 'new' | 'existing';
+
   @ApiProperty({ example: 'owner@cafe.test' })
   @IsEmail()
   ownerEmail: string;
 
-  @ApiProperty({ minLength: 8, description: 'Used only when this email is a new owner' })
+  @ApiPropertyOptional({ minLength: 8, description: 'Required when mode is new' })
+  @ValidateIf((dto: OnboardStoreDto) => dto.mode === 'new')
   @IsString()
   @MinLength(8)
   @MaxLength(72)
-  password: string;
+  password?: string;
 
   @ApiProperty({ example: 'Kala Cafe' })
   @IsString()

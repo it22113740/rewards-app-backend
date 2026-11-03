@@ -42,6 +42,11 @@ export class UserListQueryDto {
   @IsIn(['all', 'active', 'banned'])
   status?: 'all' | 'active' | 'banned';
 
+  @ApiPropertyOptional({ enum: ['user', 'owner'] })
+  @IsOptional()
+  @IsIn(['user', 'owner'])
+  role?: 'user' | 'owner';
+
   @ApiPropertyOptional({ default: 25 })
   @IsOptional()
   @Type(() => Number)

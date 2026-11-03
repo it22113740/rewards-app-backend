@@ -124,10 +124,6 @@ export class AdminService {
       where: { email },
       include: { ownerProfile: true },
     });
-    if (existing && existing.role !== Role.OWNER) {
-      throw new ConflictException('That email is already used by a guest or admin account');
-    }
-
     const venueData = {
       name: dto.name.trim(),
       address: dto.address.trim(),
@@ -141,7 +137,10 @@ export class AdminService {
     };
 
     try {
-      if (existing) {
+      if (dto.mode === 'existing') {
+        if (!existing || existing.role !== Role.OWNER) {
+          throw new NotFoundException('No store owner with that email');
+        }
         const profile =
           existing.ownerProfile ??
           (await this.prisma.ownerProfile.create({
@@ -164,6 +163,15 @@ export class AdminService {
         };
       }
 
+      if (existing) {
+        throw new ConflictException(
+          existing.role === Role.OWNER
+            ? 'That owner already has an account. Switch to Existing.'
+            : 'That email is already used by a guest or admin account',
+        );
+      }
+
+      if (!dto.password) throw new BadRequestException('Use at least 8 characters.');
       const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
       const venue = await this.prisma.$transaction(async (tx) => {
         const user = await tx.user.create({
@@ -206,7 +214,8 @@ export class AdminService {
     const offset = query.offset ?? 0;
     const q = query.q?.trim();
     const where: Prisma.UserWhereInput = {
-      role: { in: [Role.USER, Role.OWNER] },
+      role:
+        query.role === 'owner' ? Role.OWNER : query.role === 'user' ? Role.USER : { in: [Role.USER, Role.OWNER] },
       ...(query.status === 'banned' ? { bannedAt: { not: null } } : {}),
       ...(query.status === 'active' ? { bannedAt: null } : {}),
       ...(q
