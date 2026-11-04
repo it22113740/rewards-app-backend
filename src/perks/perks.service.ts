@@ -35,7 +35,7 @@ export class PerksService {
     const venue = await this.prisma.venue.findUnique({
       where: { id: venueId },
     });
-    if (!venue) {
+    if (!venue || venue.bannedAt) {
       throw new NotFoundException('Venue not found');
     }
     return this.prisma.perk.findMany({

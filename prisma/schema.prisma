@@ -109,6 +109,8 @@ model Venue {
   description     String?
   category        String?  // e.g. "restaurant", "coolbar"
   imageUrl        String?  // Cloudinary URL – shop image uploaded by owner
+  bannedAt        DateTime?
+  banReason       String?
   pointsPerVideo  Int      @default(0)
   pointsPerPhoto  Int      @default(0)
   createdAt       DateTime @default(now())

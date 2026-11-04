@@ -24,6 +24,9 @@ export class SubmissionsService {
     if (!venue) {
       throw new NotFoundException('Venue not found');
     }
+    if (venue.bannedAt) {
+      throw new ForbiddenException('This store is not accepting posts');
+    }
     return this.prisma.submission.create({
       data: {
         userId: user.id,
@@ -48,6 +51,9 @@ export class SubmissionsService {
     });
     if (!venue) {
       throw new NotFoundException('Venue not found');
+    }
+    if (venue.bannedAt) {
+      throw new ForbiddenException('This store is not accepting posts');
     }
     const submissions = await this.prisma.$transaction(
       dto.items.map((item) =>
@@ -86,9 +92,9 @@ export class SubmissionsService {
   async getApprovedMediaForVenue(venueId: string) {
     const venue = await this.prisma.venue.findUnique({
       where: { id: venueId },
-      select: { id: true },
+      select: { id: true, bannedAt: true },
     });
-    if (!venue) {
+    if (!venue || venue.bannedAt) {
       throw new NotFoundException('Venue not found');
     }
 

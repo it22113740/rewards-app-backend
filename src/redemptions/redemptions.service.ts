@@ -31,7 +31,7 @@ export class RedemptionsService {
       where: { id: perkId },
       include: { venue: true },
     });
-    if (!perk) {
+    if (!perk || perk.venue.bannedAt) {
       throw new NotFoundException('Perk not found');
     }
     const balance = await this.prisma.userVenuePoints.findUnique({

@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, Role, type User } from '@prisma/client';
+import { Prisma, Role, SubmissionStatus, type User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from '../auth/auth.service.js';
 import { LoginDto } from '../auth/dto/login.dto.js';
@@ -94,10 +94,13 @@ export class AdminService {
         where: { id: { in: pageIds } },
         include: storeInclude,
       });
+      const [reviews, promotions] = await Promise.all([this.lastReviews(pageIds), this.promotionCounts(pageIds)]);
       const byId = new Map(venues.map((venue) => [venue.id, venue]));
       const items = pageIds.flatMap((id) => {
         const venue = byId.get(id);
-        return venue ? [this.toStore(venue, media.get(id) ?? emptyMedia())] : [];
+        return venue
+          ? [this.toStore(venue, media.get(id) ?? emptyMedia(), reviews.get(id) ?? null, promotions.get(id) ?? 0)]
+          : [];
       });
       return { items, total, limit, offset };
     }
@@ -109,9 +112,21 @@ export class AdminService {
       take: limit,
       skip: offset,
     });
-    const media = await this.mediaForVenues(venues.map((venue) => venue.id));
+    const ids = venues.map((venue) => venue.id);
+    const [media, reviews, promotions] = await Promise.all([
+      this.mediaForVenues(ids),
+      this.lastReviews(ids),
+      this.promotionCounts(ids),
+    ]);
     return {
-      items: venues.map((venue) => this.toStore(venue, media.get(venue.id) ?? emptyMedia())),
+      items: venues.map((venue) =>
+        this.toStore(
+          venue,
+          media.get(venue.id) ?? emptyMedia(),
+          reviews.get(venue.id) ?? null,
+          promotions.get(venue.id) ?? 0,
+        ),
+      ),
       total,
       limit,
       offset,
@@ -156,7 +171,7 @@ export class AdminService {
           include: storeInclude,
         });
         return {
-          store: this.toStore(venue, emptyMedia()),
+          store: this.toStore(venue, emptyMedia(), null, 0),
           ownerCreated: false,
           message:
             'Store onboarded under the existing owner. Their password was left unchanged.',
@@ -196,7 +211,7 @@ export class AdminService {
         });
       });
       return {
-        store: this.toStore(venue, emptyMedia()),
+        store: this.toStore(venue, emptyMedia(), null, 0),
         ownerCreated: true,
         message:
           'Store onboarded. The owner can sign in to the Hunt app with this email and password.',
@@ -231,13 +246,26 @@ export class AdminService {
       this.prisma.user.count({ where }),
       this.prisma.user.findMany({
         where,
-        select: publicUserSelect,
+        select: {
+          ...publicUserSelect,
+          _count: { select: { redemptions: true } },
+          ownerProfile: { select: { _count: { select: { venues: true } } } },
+        },
         orderBy: { createdAt: 'desc' },
         take: limit,
         skip: offset,
       }),
     ]);
-    return { items, total, limit, offset };
+    return {
+      items: items.map(({ _count, ownerProfile, ...user }) => ({
+        ...user,
+        perkRedemptions: _count.redemptions,
+        storeCount: ownerProfile?._count.venues ?? 0,
+      })),
+      total,
+      limit,
+      offset,
+    };
   }
 
   async banUser(actor: User, userId: string, dto: BanUserDto) {
@@ -258,6 +286,28 @@ export class AdminService {
         pushToken: null,
       },
       select: publicUserSelect,
+    });
+  }
+
+  async banStore(venueId: string, dto: BanUserDto) {
+    const venue = await this.prisma.venue.findUnique({ where: { id: venueId } });
+    if (!venue) throw new NotFoundException('Store not found');
+    if (venue.bannedAt) throw new BadRequestException('This store is already banned');
+    return this.prisma.venue.update({
+      where: { id: venueId },
+      data: { bannedAt: new Date(), banReason: dto.reason.trim() },
+      select: { id: true, name: true, bannedAt: true, banReason: true },
+    });
+  }
+
+  async unbanStore(venueId: string) {
+    const venue = await this.prisma.venue.findUnique({ where: { id: venueId } });
+    if (!venue) throw new NotFoundException('Store not found');
+    if (!venue.bannedAt) throw new BadRequestException('This store is not banned');
+    return this.prisma.venue.update({
+      where: { id: venueId },
+      data: { bannedAt: null, banReason: null },
+      select: { id: true, name: true, bannedAt: true, banReason: true },
     });
   }
 
@@ -299,6 +349,35 @@ export class AdminService {
     return bucket;
   }
 
+  private async promotionCounts(venueIds: string[]) {
+    const map = new Map<string, number>();
+    for (const id of venueIds) map.set(id, 0);
+    if (!venueIds.length) return map;
+    const rows = await this.prisma.promotion.groupBy({
+      by: ['venueId'],
+      where: { venueId: { in: venueIds } },
+      _count: { _all: true },
+    });
+    for (const row of rows) map.set(row.venueId, row._count._all);
+    return map;
+  }
+
+  private async lastReviews(venueIds: string[]) {
+    const map = new Map<string, Date | null>();
+    for (const id of venueIds) map.set(id, null);
+    if (!venueIds.length) return map;
+    const rows = await this.prisma.submission.groupBy({
+      by: ['venueId'],
+      where: {
+        venueId: { in: venueIds },
+        status: { in: [SubmissionStatus.APPROVED, SubmissionStatus.REJECTED] },
+      },
+      _max: { reviewedAt: true },
+    });
+    for (const row of rows) map.set(row.venueId, row._max.reviewedAt);
+    return map;
+  }
+
   private async mediaForVenues(venueIds: string[]) {
     const map = new Map<string, MediaCounts>();
     for (const id of venueIds) map.set(id, emptyMedia());
@@ -316,11 +395,13 @@ export class AdminService {
     return map;
   }
 
-  private toStore(venue: VenueWithOwner, media: MediaCounts) {
+  private toStore(venue: VenueWithOwner, media: MediaCounts, lastReviewedAt: Date | null, promotions: number) {
     return {
       id: venue.id,
       name: venue.name,
       address: venue.address,
+      promotions,
+      lastReviewedAt,
       category: venue.category,
       description: venue.description,
       lat: venue.lat,
@@ -329,6 +410,8 @@ export class AdminService {
       pointsPerPhoto: venue.pointsPerPhoto,
       pointsPerVideo: venue.pointsPerVideo,
       imageUrl: venue.imageUrl,
+      bannedAt: venue.bannedAt,
+      banReason: venue.banReason,
       createdAt: venue.createdAt,
       owner: venue.owner.user,
       media,

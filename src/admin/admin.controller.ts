@@ -64,6 +64,20 @@ export class AdminController {
     return this.adminService.onboardStore(dto);
   }
 
+  @Post('stores/:id/ban')
+  @Superadmin()
+  @ApiOperation({ summary: 'Superadmin: ban a store so guests can no longer use it' })
+  banStore(@Param('id') id: string, @Body() dto: BanUserDto) {
+    return this.adminService.banStore(id, dto);
+  }
+
+  @Post('stores/:id/unban')
+  @Superadmin()
+  @ApiOperation({ summary: 'Superadmin: restore a banned store' })
+  unbanStore(@Param('id') id: string) {
+    return this.adminService.unbanStore(id);
+  }
+
   @Get('users')
   @Superadmin()
   @ApiOperation({ summary: 'Superadmin: list guests and store owners' })

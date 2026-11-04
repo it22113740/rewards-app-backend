@@ -30,6 +30,7 @@ export class PromotionsService {
 
   async findPublic() {
     return this.prisma.promotion.findMany({
+      where: { venue: { bannedAt: null } },
       orderBy: { createdAt: 'desc' },
       include: { venue: { select: { id: true, name: true, category: true } } },
     });
@@ -37,7 +38,7 @@ export class PromotionsService {
 
   async findByVenue(venueId: string) {
     const venue = await this.prisma.venue.findUnique({ where: { id: venueId } });
-    if (!venue) throw new NotFoundException('Venue not found');
+    if (!venue || venue.bannedAt) throw new NotFoundException('Venue not found');
     return this.prisma.promotion.findMany({
       where: { venueId },
       orderBy: { createdAt: 'desc' },

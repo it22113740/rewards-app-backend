@@ -55,6 +55,7 @@ export class NotificationsService {
     const cutoff = new Date(Date.now() - dedupeHours * 60 * 60 * 1000);
     const [venues, balances, user, recentNotifications] = await Promise.all([
       this.prisma.venue.findMany({
+        where: { bannedAt: null },
         select: {
           id: true,
           name: true,

@@ -106,6 +106,7 @@ export class VenuesService {
       lng: true,
     } as Prisma.VenueSelect;
     return this.prisma.venue.findMany({
+      where: { bannedAt: null },
       take: Math.min(limit, 100),
       skip: offset,
       orderBy: { createdAt: 'desc' },
@@ -115,7 +116,7 @@ export class VenuesService {
 
   async findNearby(lat: number, lng: number, radiusMeters?: number) {
     const radius = radiusMeters ?? 300; // default 300m
-    const venues = await this.prisma.venue.findMany();
+    const venues = await this.prisma.venue.findMany({ where: { bannedAt: null } });
     const withDistance = venues
       .map((v) => ({
         ...v,
